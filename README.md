@@ -57,7 +57,7 @@ Não há Dockerfile: este repositório não empacota processo.
 
 ## Deploy
 
-Pull request roda `terraform validate` e `plan`. Push em `homolog` e em `main` faz `apply` do mesmo estado (os dois ambientes nascem juntos) e cria os papéis. Backend remoto deve ser configurado antes do primeiro apply compartilhado; o estado local não entra no git.
+Pull request roda `terraform validate` e `plan`. Push em `homolog` e em `main` faz `apply` do mesmo estado (os dois ambientes nascem juntos) e cria os papéis. Sem os segredos OIDC e as variáveis de state, `plan` e `apply` avisam e seguem, em vez de falhar no login. Backend remoto deve ser configurado antes do primeiro apply compartilhado; o estado local não entra no git.
 
 Segredos: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`.
 

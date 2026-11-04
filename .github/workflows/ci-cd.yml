@@ -33,13 +33,31 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
+      - name: Check Azure settings
+        id: azure
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TFSTATE_RESOURCE_GROUP: ${{ vars.TFSTATE_RESOURCE_GROUP }}
+          TFSTATE_STORAGE_ACCOUNT: ${{ vars.TFSTATE_STORAGE_ACCOUNT }}
+        run: |
+          if [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_TENANT_ID" ] && [ -n "$AZURE_SUBSCRIPTION_ID" ] && [ -n "$TFSTATE_RESOURCE_GROUP" ] && [ -n "$TFSTATE_STORAGE_ACCOUNT" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Terraform na Azure ignorado. Cadastre os segredos AZURE_CLIENT_ID, AZURE_TENANT_ID e AZURE_SUBSCRIPTION_ID e as variáveis TFSTATE_RESOURCE_GROUP e TFSTATE_STORAGE_ACCOUNT."
+          fi
       - uses: azure/login@v2
+        if: steps.azure.outputs.enabled == 'true'
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - run: terraform init -input=false -backend-config=resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }} -backend-config=storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }} -backend-config=container_name=tfstate -backend-config=key=wrenchbox-db.tfstate
-      - run: terraform plan -input=false
+      - if: steps.azure.outputs.enabled == 'true'
+        run: terraform init -input=false -backend-config=resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }} -backend-config=storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }} -backend-config=container_name=tfstate -backend-config=key=wrenchbox-db.tfstate
+      - if: steps.azure.outputs.enabled == 'true'
+        run: terraform plan -input=false
 
   apply:
     name: Terraform apply
@@ -55,19 +73,38 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
+      - name: Check Azure settings
+        id: azure
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TFSTATE_RESOURCE_GROUP: ${{ vars.TFSTATE_RESOURCE_GROUP }}
+          TFSTATE_STORAGE_ACCOUNT: ${{ vars.TFSTATE_STORAGE_ACCOUNT }}
+        run: |
+          if [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_TENANT_ID" ] && [ -n "$AZURE_SUBSCRIPTION_ID" ] && [ -n "$TFSTATE_RESOURCE_GROUP" ] && [ -n "$TFSTATE_STORAGE_ACCOUNT" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Terraform na Azure ignorado. Cadastre os segredos AZURE_CLIENT_ID, AZURE_TENANT_ID e AZURE_SUBSCRIPTION_ID e as variáveis TFSTATE_RESOURCE_GROUP e TFSTATE_STORAGE_ACCOUNT."
+          fi
       - uses: azure/login@v2
+        if: steps.azure.outputs.enabled == 'true'
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Install psql
+        if: steps.azure.outputs.enabled == 'true'
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - name: Apply
+        if: steps.azure.outputs.enabled == 'true'
         run: |
           IP=$(curl -fsS https://api.ipify.org)
           terraform init -input=false -backend-config=resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }} -backend-config=storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }} -backend-config=container_name=tfstate -backend-config=key=wrenchbox-db.tfstate
           terraform apply -input=false -auto-approve -var "operator_ip=${IP}"
       - name: Create database roles
+        if: steps.azure.outputs.enabled == 'true'
         run: |
           VAULT=$(terraform output -raw key_vault_name)
           export PGHOST=$(terraform output -raw postgres_fqdn)
